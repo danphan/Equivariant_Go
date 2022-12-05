@@ -2,16 +2,16 @@ from dlgo.data.parallel_processor import GoDataProcessor
 from dlgo.encoders.oneplane import OnePlaneEncoder
 
 from dlgo.networks import small
-from tensorflow.keras import Sequential
+from tensorflow.keras import Sequential, Input
 from tensorflow.keras.layers import Dense, Layer
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.losses import CategoricalCrossentropy
 from tensorflow.experimental.numpy import moveaxis
 
-from tensorflow.keras.layers import Dense, Activation, Flatten
-from tensorflow.keras.layers import Conv2D, ZeroPadding2D
+from tensorflow.keras.layers import Flatten
+from p4m_conv import P4Conv2D, P4ZeroPadding2D
 
-from p4m_conv import P4Conv
+#from p4m_conv import P4Conv
 
 """
 Change Channels First to channels Last
@@ -39,45 +39,60 @@ print(generator.get_num_samples()/128,'steps per epoch')
 
 #define keras model
 input_shape = (encoder.num_planes, go_board_rows, go_board_cols)
-network_layers = small.layers(input_shape)
+
 model = Sequential()
+model.add(Input(shape=input_shape))
 model.add(Flip())
-model.add(ZeroPadding2D(padding=3, input_shape=input_shape, data_format='channels_last'))
-model.add(P4Conv(num_feature_maps = 48, filter_size = 7))
-model.add(Activation('relu'))
-for layer in network_layers:
-    model.add(layer)
+
+#small_layers = small.layers(input_shape)
+#for layer in small_layers:
+#    model.add(layer)
+#
+model.add(P4Conv2D(24, (7, 7),activation='relu',first_layer = True))
+model.add(P4ZeroPadding2D(padding=2))
+model.add(P4Conv2D(16, (5, 5),activation='relu'))
+model.add(P4ZeroPadding2D(padding=2))
+model.add(P4Conv2D(16, (5, 5), activation='relu'))
+model.add(P4ZeroPadding2D(padding=2))
+model.add(P4Conv2D(16, (5, 5),activation='relu'))
+model.add(Flatten())
+model.add(Dense(512, activation='softmax'))
 model.add(Dense(num_classes, activation='softmax'))
+
+
 model.compile(loss=CategoricalCrossentropy(), optimizer='adam',metrics=['accuracy'])
 
 model.build((None,*input_shape))
 
 #print model summary
 print(model.summary())
-#
-##train model
-#epochs = 50
-#batch_size = 128
+
+#train model
+epochs = 50
+batch_size = 128
+model.fit(
+    generator.generate(batch_size, num_classes),
+    steps_per_epoch = generator.get_num_samples()//batch_size,
+    epochs = epochs,
+    validation_data = test_generator.generate(batch_size, num_classes),
+    validation_steps = test_generator.get_num_samples()//batch_size,
+    #callbacks=[
+    #ModelCheckpoint('checkpoints/small_model_epoch_{epoch}.h5')
+    #] #callback stores model at each epoch
+    )
+
+
 #model.fit(
 #    generator.generate(batch_size, num_classes),
-#    steps_per_epoch = generator.get_num_samples()//batch_size,
 #    epochs = epochs,
+#    steps_per_epoch = generator.get_num_samples()/batch_size,
 #    validation_data = test_generator.generate(batch_size, num_classes),
-#    validation_steps = test_generator.get_num_samples()//batch_size,
+#    validation_steps = test_generator.get_num_samples()/batch_size,
 #    callbacks=[
-#    ModelCheckpoint('checkpoints/small_model_epoch_{epoch}.h5')
+#    ModelCheckpoint('../checkpoints/small_model_epoch_{epoch}.h5')
 #    ]) #callback stores model at each epoch
-##model.fit(
-##    generator.generate(batch_size, num_classes),
-##    epochs = epochs,
-##    steps_per_epoch = generator.get_num_samples()/batch_size,
-##    validation_data = test_generator.generate(batch_size, num_classes),
-##    validation_steps = test_generator.get_num_samples()/batch_size,
-##    callbacks=[
-##    ModelCheckpoint('../checkpoints/small_model_epoch_{epoch}.h5')
-##    ]) #callback stores model at each epoch
-##
-##evaluate model
-#model.evaluate(
-#    test_generator.generate(batch_size,num_classes),
-#    steps = test_generator.get_num_samples()/batch_size)
+#
+#evaluate model
+model.evaluate(
+    test_generator.generate(batch_size,num_classes),
+    steps = test_generator.get_num_samples()/batch_size)
