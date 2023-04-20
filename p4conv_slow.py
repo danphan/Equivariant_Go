@@ -40,7 +40,7 @@ class P4Conv2D(Layer):
         filter_shape = (height_filter, width_filter, num_channels_in, self.num_channels_out)
 
         psi_init = tf.random_normal_initializer()
-        psi_init_val = psi_init(shape=filter_shape,dtype='float32')
+        psi_init_val = psi_init(shape=filter_shape,dtype=float)
         self.psi =  tf.Variable(initial_value = psi_init_val, trainable='true')
 
 
@@ -61,8 +61,8 @@ class P4Conv2D(Layer):
         psi_rotated_list.append(P4_ops[3](self.psi))
 
         psi_expanded = tf.stack(psi_rotated_list, axis = -1)
-        #psi_expanded = tf.reshape(psi_expanded, (height_filter, width_filter, num_channels_in, len(P4_ops)*self.num_channels_out))
-        psi_expanded = tf.reshape(psi_expanded, (height_filter, width_filter, num_channels_in, -1))
+        psi_expanded = tf.reshape(psi_expanded, (height_filter, width_filter, num_channels_in, len(P4_ops)*self.num_channels_out))
+        #psi_expanded = tf.reshape(psi_expanded, (height_filter, width_filter, num_channels_in, -1))
 
         if isinstance(self.padding, str):
             self.padding = self.padding.upper()
